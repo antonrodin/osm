@@ -129,8 +129,188 @@ Oct 03, 2018 11:02:49 AM org.openstreetmap.osmosis.core.Osmosis run
 INFO: Total execution time: 24987 milliseconds
 ```
 
-Despues de combinar realizamos el paso de importarlo todo en PostgreSQL. **¡Ojo! Cuidado con las ruta** y es posible que te de un **error de cache**, es posible que tengas que variar la opcion -C, prueba ponerlo más bajo, ya que si no me equivoco depende de tu RAM.***
+## 6 Recomendaciones. Configurar el SWAP File y activar el Keep Alive para SSH
+
+Si tenemos poca memoria RAM, como es mi caso y probablemente el tuyo, recomiendo crear un archivo swap. Es muy facil y se hace en cuestión de 20 segundos. **Hay que hacerlo con el usuario root, de ahñi que salimos de osm, con el exit.** Basicamente crea un archivo que ocupa 2 Gb.
 
 ```shell
+#creamos el archivo en la raiz
+sudo fallocate -l 2G /swapfile
+#damos permisos solo de usuario root a este archivo
+sudo chmod 600 /swapfile
+#le damos formato de swap
+sudo mkswap /swapfile
+#lo activamos
+sudo swapon /swapfile
+```
+
+Activar el Keep Alive (mantener vivo en spanish), es tambien muy recomendable. Cuando empezamos la importación el proceso dura, diria que al menos 1-2 horas, aunque dependiendo del mapa que vas a importar y la potencia de tu maquina, durarará mas o menos tiempo. Con el Keep Alive activado la conexión SSH con nuestro servidor no se cierra, es decir no te vas a encontrar con el mensaje "Broken Pipe"
+
+```shell
+# Abre este archivo con tu editor favorito. Nano, Vim o lo que quieras
+sudo vi /etc/ssh/ssh_config
+```
+
+Añade esto:
+
+```shell
+ServerAliveInterval 60
+```
+
+## 7 Importación a PostgreSQL
+
+Este paso recomiendo realizar con al menos un par de horas por delante, ya que dura bastante. Para el mapa de España unas dos horas en un servidor poco potente. Para ello necesitaremos de la herramienta **osm2pgsql** que procesa OSM Map ta y la importa en nuestra base de datos gis creada previamente.
+
+Instalamos (con usuario root):
+
+```shell
+sudp apt install osm2pgsql
+```
+
+Importamos (con usuario osm):
+```shell
+su - osm
+# Recuerda que nuestro merged file se encuentra en la carpeta de ~/osmosis/bin
+# El comando para ejecutar el proceso estando en ese directorio es el siguiente
 osm2pgsql --slim -d gis -C 3600 --hstore -S ~/openstreetmap-carto-2.41.0/openstreetmap-carto.style merged.pbf
+```
+
+**¡Ojo!** Si te da algun tipo de error relacionado con _cache_ prueba a reducir el parametro "-C 3600" del comando. Suele pasar bastante.
+
+El comando como tal no necesita mucha explicación, es largo pero cada parametro es lógico. Indicamos nuestra base de datos _gis_, junto con la extensión _hstore_, nuestros estilos que hemos descargado y el archivo _merged.pbf_ que hemos generado.
+
+Para importar Andorra + Canarias en una maquina lamentable ha tardado en mi caso 180 segundos. El resultado que te mostrara lo puedes encontrar en el archivo "benchmark-andorra-canarias.rb" en este mismo proyecto
+
+Una vez acabamos la instalación, salimos de usuario osm.
+
+```shell
+exit
+```
+
+## 8 Instalar mod_tile (usuario root)
+
+El mod_tile, es un modulo del servidor web Apache que se encarga de servir nuestros "tiles". Es necesario compliarlo, pero es muy fácil.
+
+```shell
+# Instalar dependencias, entre ellas GIT por ejemplo
+sudo apt install git autoconf libtool libmapnik-dev apache2-dev
+# Obtener el código fuente
+git clone https://github.com/openstreetmap/mod_tile.git
+# Compilar e instalar
+cd mod_tile
+./autogen.sh
+./configure
+make
+sudo make install
+sudo make install-mod_tile
+```
+
+El proceso tarda unos 5 minutos.
+
+## 9 Generar hoja de estilos para Mapnik
+
+Mapnik si no me equivoco son herramientas de código abierto para generar y basicamente generamos estilos para el.
+
+Primero, instalar dependencias:
+```shell
+sudo apt install curl unzip gdal-bin mapnik-utils node-carto
+```
+
+Generar estilos. (usuario osm)
+```shell
+su - osm
+
+# Entramos en la carpeta bajada previamente
+cd openstreetmap-carto-2.41.0/
+
+# Ejecutamos Script
+./get-shapefiles.sh
+
+# Generamos estilos
+carto project.mml > style.xml
+
+# Salimos de usuario osm
+exit
+```
+
+Este procesno no dura mas de 1-2 minutos.
+
+## 10. Configuramos el servicio renderd.
+
+**renderd** es parte de **mod_tile** que hemos instalado antes, una especie de backend que obtiene peticiones del modulo de apache y genera unos archivos .png en nuestro sistema, concretamente enesta carpeta: "_/var/lib/mod_tile_". De hecho se activa como servicio o demonio y en este paso ya es posibible comprobar un poco de todo lo que hemos instalado previamente... que no es poco.
+
+Editamos el archivo de configuración
+```shell
+sudo vi /usr/local/etc/renderd.conf
+```
+
+Bajo la sección __[defaule]__ modificamos esto:
+
+```shell
+XML=/home/osm/openstreetmap-carto-2.41.0/style.xml
+HOST=localhost
+```
+Bajo la sección __[mapnik]__ modificmos esto:
+
+```shell
+plugins_dir=/usr/lib/mapnik/3.0/input/
+```
+Guardamos el archivo... e instalamos y configuramos el demonio:
+
+```shell
+# Lo copiamos al directorio de inid.t 
+sudo cp mod_tile/debian/renderd.init /etc/init.d/renderd
+# Le damos permisos de ejecución
+sudo chmod a+x /etc/init.d/renderd
+```
+
+Configuramos el demonio.
+
+```shell
+sudo vi /etc/init.d/renderd
+
+# Cambiamos la siguiente configuración
+DAEMON=/usr/local/bin/$NAME
+DAEMON_ARGS="-c /usr/local/etc/renderd.conf"
+RUNASUSER=osm
+```
+
+Como apunte, lo que hemos especificado es que se ejecute como usuario **osm** y le proporcionamos la ruta del archivo de configuración que acabamos de modificar cons los parametros de estilos.
+
+Ahora, creamos una carpeta para nuestros 'tiles' cuyo dueño es el usuario **osm**. Los tiles por cierto son unos archivos .png. De hecho si entradas a esta carpeta pasado un tiempo de funcionamiento de servidor encontraras miles de estos archivos.
+
+```shell
+sudo mkdir -p /var/lib/mod_tile
+sudo chown osm:osm /var/lib/mod_tile
+```
+
+Por último, solo nos queda activar el demonio con estos comandos. Son bastante estandar y puedes hacer el tipico __status, reload, restart.... etc__:
+
+```shell
+sudo systemctl daemon-reload
+sudo systemctl start renderd
+sudo systemctl enable renderd
+```
+
+En este paso, podemos comprobar un poco el funcionamiento y realizar cierto debug, puedes ejecutar esto y comprobar:
+
+```shell
+root@osm:~# sudo systemctl status renderd
+● renderd.service - LSB: Mapnik rendering daemon
+   Loaded: loaded (/etc/init.d/renderd; bad; vendor preset: enabled)
+   Active: active (running) since Wed 2018-10-03 19:36:03 CEST; 18s ago
+     Docs: man:systemd-sysv-generator(8)
+   CGroup: /system.slice/renderd.service
+           └─6092 /usr/local/bin/renderd -c /usr/local/etc/renderd.conf
+
+Oct 03 19:36:03 osm systemd[1]: Started LSB: Mapnik rendering daemon.
+Oct 03 19:36:03 osm renderd[6092]: Loading parameterization function for
+Oct 03 19:36:03 osm renderd[6092]: Loading parameterization function for
+Oct 03 19:36:03 osm renderd[6092]: Loading parameterization function for
+Oct 03 19:36:03 osm renderd[6092]: Loading parameterization function for
+Oct 03 19:36:03 osm renderd[6092]: Starting stats thread
+Oct 03 19:36:13 osm renderd[6092]: Using web mercator projection settings
+Oct 03 19:36:13 osm renderd[6092]: Using web mercator projection settings
+Oct 03 19:36:13 osm renderd[6092]: Using web mercator projection settings
+Oct 03 19:36:13 osm renderd[6092]: Using web mercator projection settings
 ```
