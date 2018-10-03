@@ -73,9 +73,13 @@ tar xvf v2.41.0.tar.gz
 
 Basicamente son las hojas de estilo o estilos por defecto de los mapas. Logicamente se pueden cambiar.
 
-## 5. Osmosis:
+## 5. Osmosis (Caso España):
 
-Osmosis es una aplicación de línea de comandos hecha en **JAVA** para procesar OSM Data. La necesitaremos para juntar los datos de cartografía de España e Islas Canarias. Asi que lo primero que tenemos que hacer es **instalar JAVA Java Development Kit, como usuario root**.
+**¡Ojo!** Si solo vas a importar un pais o el mapa mundi, debes saltar este paso, ya que no es necesario.
+
+Aquí esta el mayor problema de España que no se cubre en otros tutoriales en ingles. Cuando importamos el mapa de España no incluye las Islas Canarias. Islas Canarias por defecto se encuentran en la zona de "Africa". Si no utilizas osmosis el renderizado no funciona correctamente.
+
+Osmosis es una aplicación de línea de comandos hecha en **JAVA** para procesar OSM Data. La necesitaremos para procesar y juntar los datos de cartografía de España e Islas Canarias. Asi que lo primero que tenemos que hacer es **instalar JAVA Java Development Kit, como usuario root**.
 
 ```shell
 exit
@@ -97,7 +101,7 @@ cd bin
 ./osmosis --help
 ````
 
-Descargar la cartografía de Andorra y Canarias y combinarla juntos. Logicamente en el caso de España solo tienes que sustituir...
+Descargar la cartografía de Andorra y Canarias y combinarla juntos. Logicamente en el caso de España solo tienes que sustituir Andorra por España. La cartografía la puedes descargar gratuitamente de aquí: http://download.geofabrik.de/
 
 ```shell
 wget -c http://download.geofabrik.de/europe/andorra-latest.osm.pbf
@@ -125,7 +129,7 @@ Oct 03, 2018 11:02:49 AM org.openstreetmap.osmosis.core.Osmosis run
 INFO: Total execution time: 24987 milliseconds
 ```
 
-Despues de combinar realizamos el paso de importarlo todo en PostgreSQL. *** ¡Ojo! Cuidado con las ruta *** y es posible que te de un *** error de cache ***, es posible que tengas que variar la opcion -C, prueba ponerlo más bajo, ya que si no me equivoco depende de tu RAM.***
+Despues de combinar realizamos el paso de importarlo todo en PostgreSQL. **¡Ojo! Cuidado con las ruta** y es posible que te de un **error de cache**, es posible que tengas que variar la opcion -C, prueba ponerlo más bajo, ya que si no me equivoco depende de tu RAM.***
 
 ```shell
 osm2pgsql --slim -d gis -C 3600 --hstore -S ~/openstreetmap-carto-2.41.0/openstreetmap-carto.style merged.pbf
