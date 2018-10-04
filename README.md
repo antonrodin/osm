@@ -1,25 +1,15 @@
 # Crear tu propio servidor Open Street Maps en Ubuntu 16.04
 
-Ver 0.1 (En proceso)
+Ver 0.9 (En proceso, disculpad los errores ortográficos)
 
 Esto es un manual para crear tu propio servidor para renderizar "tiles" para Open Street Maps (en adelante OSM). Esta orientado a España, ya que 
 es un caso un poco especial ya que hay que hacer un "merge" de Islas Canarias y España. Para que el ejemplo sea más rapido de realizar, **se va a realizar con Andorra y en servidores de Arruba** que cuesta aproximadamente 1€ al mes (https://www.arubacloud.com/). Logicamente no voy a publicar la IP de mi servidor real...
 
 Para el servidor real he utilizado un droplet de DigitalOcean para España + Canarias, ocupando un total de 25-30Gb. Dame un eurooooo illo y consigue tus 10$: https://m.do.co/c/2514e298cfc4, ademas al registrarte mete LOWENDBOX y consigues otros 15 dolar frescos. :)
 
-Este tutorial esta basado en esta documentación:
-
-* OSM: https://www.linuxbabe.com/linux-server/openstreetmap-tile-server-ubuntu-16-04
-* Apache: https://www.digitalocean.com/community/tutorials/how-to-install-the-apache-web-server-on-ubuntu-16-04
-* Osmosis: https://wiki.openstreetmap.org/wiki/Osmosis/Installation
-* The problem: https://gis.stackexchange.com/questions/222001/how-to-put-the-two-regions-and-countries-data-on-openstreetmap-into-postgresql
-* Java JDK: https://www.digitalocean.com/community/tutorials/como-instalar-java-con-apt-get-en-ubuntu-16-04-es
-* Leaflet: https://leafletjs.com/
-* Lets Encrypt: https://www.digitalocean.com/community/tutorials/how-to-secure-apache-with-let-s-encrypt-on-ubuntu-16-04
-
 ## Introducción
 
-Realmente todo viene por el tema de que actualmente los precios de la API Google Street Maps son abusivos (según mi opinión). Existe una alternativa llamada Leaflet.js que utiliza OSM. El problema es que el "Tile Server de OSM" no es gratuito. Pero en unas 2-4 horas puedes montar el tuyo propio que te costara unos 10-15$ al mes y con un rendimiento aceptable. Siempre y cuando solo vas a utilizar el mapa de España. Este manual utilizara **Ubuntu 16.04, Postgre SQL y Servidor web Apache**. Posteriormente intentare crear lo mismo pero con Ubuntu 18.04, aunque puedes hacerlo tu, ya que como puedes comprobar el manual esta en Github con licencia MIT.
+Realmente todo viene por el tema de que actualmente los precios de la API Google Street Maps son abusivos (según mi opinión). Existe una alternativa llamada Leaflet.js que utiliza OSM. El problema es que el "Tile Server de OSM" no es gratuito. Pero en unas 2-4 horas puedes montar el tuyo propio que te costara unos 10-15$ al mes y con un rendimiento aceptable. Siempre y cuando solo vas a utilizar el mapa de España. Este manual utilizara **Ubuntu 16.04, Postgre SQL y Servidor Web Apache**. Posteriormente intentare crear lo mismo pero con Ubuntu 18.04, aunque puedes hacerlo tu, ya que como puedes comprobar el manual esta en Github con licencia MIT.
 
 ## 1. Actualizar.
 
@@ -374,3 +364,31 @@ Nos tendria que aparecer una imagen del mapa mundi en pequeño. Si la ves, es qu
 Aunque no es estrictamente necesario se ha configurado el certificado SSL, puedes ver los cuatro pasos necesarios en el fichero __lets-encrypt.md__. Es un paso muy recomendable, ya que si vas a utilizar este servidor en producción, necesitaras conexión "segura".
 
 ## Anexo 2. Ejemplo.
+
+He subido un ejemplo del funcionamiento que puedes consultar en la rama **gh-pages**, así mismo lo tienes funcionando en internet aquí: https://antonrodin.github.io/osm/. Utiliza la citada libreria Leaflet, que tiene bastante de documentación y se asemeja a la Api de Google Maps. Es más que suficiente para proyectos pequeños y medianos.
+
+# Por último y no menos importante
+
+Al principio es posible que el funcionamiento te parezca lento, principalmente es por la generación del mapa. De hecho es posible que tengas errores de "not found" o "timeout" en la consola. El problema reside en que los "tiles" se generan en tiempo real.
+
+Basicamente el **renderd** genera archivos .png y los guarda en la carpeta __/var/lib/mod_tile/__. Puedes acelerar este proceso y renderizar del tiron estos archivos con el comando **render_list**. Puedes encontrar algo de documentación aquí: http://www.volkerschatz.com/net/osm/render_list.html
+
+El comando basico es este:
+
+```shell
+render_list -m default -a -z 0 -Z 10
+```
+
+Te generara tiles desde el zoom = 0 (-z) hasta zoom = 10 (-Z), **¡Ojo!** según el zoom y el mapa que tengas puede tardar MUCHO TIEMPO. Puedes probarlo con valores bajos, de 0 a 5 por ejemplo.
+
+Personalmente, pasados varios días con un cierto uso del servidor el rendimiento es aceptable. Pero logicamente se trata de algo ciertamente complejo y existen diferentes y numerosas formas de optimizarlo y configurarlo. Te invito a descubirirlo por ti mismo.
+
+### Este tutorial esta basado en esta documentación:
+
+* OSM: https://www.linuxbabe.com/linux-server/openstreetmap-tile-server-ubuntu-16-04
+* Apache: https://www.digitalocean.com/community/tutorials/how-to-install-the-apache-web-server-on-ubuntu-16-04
+* Osmosis: https://wiki.openstreetmap.org/wiki/Osmosis/Installation
+* The problem: https://gis.stackexchange.com/questions/222001/how-to-put-the-two-regions-and-countries-data-on-openstreetmap-into-postgresql
+* Java JDK: https://www.digitalocean.com/community/tutorials/como-instalar-java-con-apt-get-en-ubuntu-16-04-es
+* Leaflet: https://leafletjs.com/
+* Lets Encrypt: https://www.digitalocean.com/community/tutorials/how-to-secure-apache-with-let-s-encrypt-on-ubuntu-16-04
