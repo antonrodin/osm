@@ -367,4 +367,10 @@ Para comprobar que todo funcione, teclea en el navegador esto:
 http://IP_DE_TU_SERVIDOR/osm_tiles/0/0/0.png
 ```
 
-Nos tendria que aparecer una imagen del mapa mundi en pequeño. Si la ves, es que parece que funciona todo.
+Nos tendria que aparecer una imagen del mapa mundi en pequeño. Si la ves, es que parece que funciona todo. Por ejemplo en mi caso he configurado un subdominio para este servidor: https://tile.azr.es/osm_tiles/0/0/0.png
+
+## Anexo 1. SSL.
+
+Aunque no es estrictamente necesario se ha configurado el certificado SSL, puedes ver los cuatro pasos necesarios en el fichero __lets-encrypt.md__. Es un paso muy recomendable, ya que si vas a utilizar este servidor en producción, necesitaras conexión "segura".
+
+## Anexo 2. Ejemplo.
