@@ -129,7 +129,7 @@ Oct 03, 2018 11:02:49 AM org.openstreetmap.osmosis.core.Osmosis run
 INFO: Total execution time: 24987 milliseconds
 ```
 
-## 6 Recomendaciones. Configurar el SWAP File y activar el Keep Alive para SSH
+## 6. Recomendaciones. Configurar el SWAP File y activar el Keep Alive para SSH
 
 Si tenemos poca memoria RAM, como es mi caso y probablemente el tuyo, recomiendo crear un archivo swap. Es muy facil y se hace en cuestión de 20 segundos. **Hay que hacerlo con el usuario root, de ahñi que salimos de osm, con el exit.** Basicamente crea un archivo que ocupa 2 Gb.
 
@@ -157,7 +157,7 @@ Añade esto:
 ServerAliveInterval 60
 ```
 
-## 7 Importación a PostgreSQL
+## 7. Importación a PostgreSQL
 
 Este paso recomiendo realizar con al menos un par de horas por delante, ya que dura bastante. Para el mapa de España unas dos horas en un servidor poco potente. Para ello necesitaremos de la herramienta **osm2pgsql** que procesa OSM Map ta y la importa en nuestra base de datos gis creada previamente.
 
@@ -187,7 +187,7 @@ Una vez acabamos la instalación, salimos de usuario osm.
 exit
 ```
 
-## 8 Instalar mod_tile (usuario root)
+## 8. Instalar mod_tile (usuario root)
 
 El mod_tile, es un modulo del servidor web Apache que se encarga de servir nuestros "tiles". Es necesario compliarlo, pero es muy fácil.
 
@@ -207,7 +207,7 @@ sudo make install-mod_tile
 
 El proceso tarda unos 5 minutos.
 
-## 9 Generar hoja de estilos para Mapnik
+## 9. Generar hoja de estilos para Mapnik
 
 Mapnik si no me equivoco son herramientas de código abierto para generar y basicamente generamos estilos para el.
 
@@ -314,3 +314,57 @@ Oct 03 19:36:13 osm renderd[6092]: Using web mercator projection settings
 Oct 03 19:36:13 osm renderd[6092]: Using web mercator projection settings
 Oct 03 19:36:13 osm renderd[6092]: Using web mercator projection settings
 ```
+
+## 11. Instalar y configurar servidor Web Apache.
+
+```shell
+sudo apt install apache2
+```
+
+Crear un archivo para cargar el modulo:
+
+```shell
+sudo nano /etc/apache2/mods-available/mod_tile.load
+```
+
+Pegar la siguiente línea:
+
+```shell
+LoadModule tile_module /usr/lib/apache2/modules/mod_tile.so
+```
+
+Crear un enlace simbólico:
+
+```shell
+sudo ln -s /etc/apache2/mods-available/mod_tile.load /etc/apache2/mods-enabled/
+```
+
+Editar el archivo de alojamiento virtual por defecto (default virtual host):
+
+```shell
+sudo vi /etc/apache2/sites-enabled/000-default.conf
+```
+
+Añadir las siguientes lineas dentro de **<VirtualHost *:80>**
+
+```shell
+LoadTileConfigFile /usr/local/etc/renderd.conf
+ModTileRenderdSocketName /var/run/renderd/renderd.sock
+# Timeout before giving up for a tile to be rendered
+ModTileRequestTimeout 0
+# Timeout before giving up for a tile to be rendered that is otherwise missing
+ModTileMissingRequestTimeout 30
+```
+Reiniciar Servidor Apache
+
+```shell
+sudo systemctl restart apache2
+```
+
+Para comprobar que todo funcione, teclea en el navegador esto:
+
+```
+http://IP_DE_TU_SERVIDOR/osm_tiles/0/0/0.png
+```
+
+Nos tendria que aparecer una imagen del mapa mundi en pequeño. Si la ves, es que parece que funciona todo.
