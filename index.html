@@ -7,9 +7,7 @@
     <title>Ejemplo para el Open Street Maps con tu Servidor Propio</title>
     <link rel="stylesheet" href="leaflet.css">
     <style>
-    
-        #map-canvas { width: 100%; height: 100%; }
-
+            #map-canvas { width: 500px; height: 500px; }
     </style>
 </head>
 <body>
@@ -24,11 +22,13 @@
         let pos = {
             lat: 28.4843887,
             lng: -16.3168398,
+            zoom: 15,
         };
        
-        let map = L.map('map-canvas').setView([ pos.lat, pos.lng ],5);
+        let map = L.map('map-canvas').setView([ pos.lat, pos.lng ], pos.zoom);
 
         L.tileLayer('https://tile.azr.es/osm_tiles/{z}/{x}/{y}.png', { maxZoom: 18 } ).addTo(map);
+        console.log(map);
     </script>
 </body>
 </html>
