@@ -1,6 +1,8 @@
 # Crear tu propio servidor Open Street Maps en Ubuntu 16.04
 
-Ver 0.9 (En proceso, disculpad los errores ortográficos)
+Ver 0.9.
+
+Antes de nada, yo no soy experto en Open Street Maps, Este tutorial es una experiencia personal de implantación.
 
 Esto es un manual para crear tu propio servidor para renderizar "tiles" para Open Street Maps (en adelante OSM). Esta orientado a España, ya que 
 es un caso un poco especial ya que hay que hacer un "merge" de Islas Canarias y España. Para que el ejemplo sea más rapido de realizar, **se va a realizar con Andorra y en servidores de Arruba** que cuesta aproximadamente 1€ al mes (https://www.arubacloud.com/). Logicamente no voy a publicar la IP de mi servidor real...
@@ -18,9 +20,9 @@ sudo apt update
 sudo apt upgrade
 ```
 
-## 2. Instalar PostgreDB con la extensión de PostGis
+## 2. Instalar PostgreSQL
 
-OSM se cargara en PostgreDB junto con la extensión geoespacial PostGIS. Para instalar:
+Instalar PostreSQL con la extensión de PostGis y el modulo hstore.
 
 ```shell
 sudo apt install postgresql postgresql-contrib postgis postgresql-9.5-postgis-2.2
@@ -47,7 +49,7 @@ exit
 
 ## 3. Descarcargar las hojas de estilo y crear usuario osm
 
-Primero creamos usuario osm, que será el responsable de servir, importar las "tiles". Creamos y logueamos:
+Ademas de ello crearemos usuario __osm__ en el sistema, que será el __responsable de ejecutar el renderd de mod_tile en el futuro__. El usuario en principio no tiene nada que ver con el usuario __osm__ de PostgreSQL
 
 ```shell
 sudo adduser osm
@@ -59,6 +61,9 @@ Descargamos las hojas de estilo y descomprimimos
 ```shell
 wget https://github.com/gravitystorm/openstreetmap-carto/archive/v2.41.0.tar.gz
 tar xvf v2.41.0.tar.gz
+
+#Salimos de usuario osm
+exit
 ```
 
 Basicamente son las hojas de estilo o estilos por defecto de los mapas. Logicamente se pueden cambiar.
@@ -67,16 +72,15 @@ Basicamente son las hojas de estilo o estilos por defecto de los mapas. Logicame
 
 **¡Ojo!** Si solo vas a importar un pais o el mapa mundi, debes saltar este paso, ya que no es necesario.
 
-Aquí esta el mayor problema de España que no se cubre en otros tutoriales en ingles. Cuando importamos el mapa de España no incluye las Islas Canarias. Islas Canarias por defecto se encuentran en la zona de "Africa". Si no utilizas osmosis el renderizado no funciona correctamente.
+Aquí esta el mayor problema de España que no se cubre en otros tutoriales en ingles. Cuando importamos el mapa de España no incluye las Islas Canarias. **Islas Canarias por defecto pertenece al continente de "Africa"**. Si no utilizas osmosis el renderizado no funciona correctamente.
 
 Osmosis es una aplicación de línea de comandos hecha en **JAVA** para procesar OSM Data. La necesitaremos para procesar y juntar los datos de cartografía de España e Islas Canarias. Asi que lo primero que tenemos que hacer es **instalar JAVA Java Development Kit, como usuario root**.
 
 ```shell
-exit
 sudo apt-get install default-jdk
 ```
 
-Volvemos a usuario osm e instalamos osmosis en si:
+Volvemos a usuario osm e descargamos osmosis en si:
 
 ```shell
 su - osm
@@ -102,7 +106,7 @@ wget -c http://download.geofabrik.de/africa/canary-islands-latest.osm.pbf
 ./osmosis --read-pbf file="andorra-latest.osm.pbf" --read-pbf file="canary-islands-latest.osm.pbf" --merge --write-pbf file="merged.pbf"
 ```
 
-La salida tiene esta pinta, es decir en un servidor lamentable combinar andorra y canarias dura unos 24.5 segundos.
+La salida tiene esta pinta, es decir en un servidor lamentable combinar andorra y canarias dura unos 25 segundos.
 
 ```shell
 Oct 03, 2018 11:02:24 AM org.openstreetmap.osmosis.core.Osmosis run
@@ -149,7 +153,7 @@ ServerAliveInterval 60
 
 ## 7. Importación a PostgreSQL
 
-Este paso recomiendo realizar con al menos un par de horas por delante, ya que dura bastante. Para el mapa de España unas dos horas en un servidor poco potente. Para ello necesitaremos de la herramienta **osm2pgsql** que procesa OSM Map ta y la importa en nuestra base de datos gis creada previamente.
+Este paso recomiendo realizar con al menos un par de horas por delante, ya que dura bastante (Caso españa, unos 700Mb de importación). Para ello necesitaremos de la herramienta **osm2pgsql** que procesa OSM Map ta y la importa en nuestra base de datos gis creada previamente.
 
 Instalamos (con usuario root):
 
@@ -169,7 +173,7 @@ osm2pgsql --slim -d gis -C 3600 --hstore -S ~/openstreetmap-carto-2.41.0/openstr
 
 El comando como tal no necesita mucha explicación, es largo pero cada parametro es lógico. Indicamos nuestra base de datos _gis_, junto con la extensión _hstore_, nuestros estilos que hemos descargado y el archivo _merged.pbf_ que hemos generado.
 
-Para importar Andorra + Canarias en una maquina lamentable ha tardado en mi caso 180 segundos. El resultado que te mostrara lo puedes encontrar en el archivo "benchmark-andorra-canarias.rb" en este mismo proyecto
+Para importar Andorra + Canarias en una maquina lamentable ha tardado en mi caso 180 segundos. El resultado que te mostrara lo puedes encontrar en el archivo **benchmark-andorra-canarias.rb** en este mismo proyecto
 
 Una vez acabamos la instalación, salimos de usuario osm.
 
@@ -199,9 +203,9 @@ El proceso tarda unos 5 minutos.
 
 ## 9. Generar hoja de estilos para Mapnik
 
-Mapnik si no me equivoco son herramientas de código abierto para generar y basicamente generamos estilos para el.
+Mapnik si no me equivoco son herramientas de código abierto para OSM y basicamente generamos estilos para el.
 
-Primero, instalar dependencias:
+Primero, instalamos dependencias (usuario root):
 ```shell
 sudo apt install curl unzip gdal-bin mapnik-utils node-carto
 ```
@@ -227,14 +231,14 @@ Este procesno no dura mas de 1-2 minutos.
 
 ## 10. Configuramos el servicio renderd.
 
-**renderd** es parte de **mod_tile** que hemos instalado antes, una especie de backend que obtiene peticiones del modulo de apache y genera unos archivos .png en nuestro sistema, concretamente enesta carpeta: "_/var/lib/mod_tile_". De hecho se activa como servicio o demonio y en este paso ya es posibible comprobar un poco de todo lo que hemos instalado previamente... que no es poco.
+**renderd** es parte de **mod_tile** que hemos instalado antes, una especie de backend que obtiene peticiones del modulo de apache y genera unos archivos .png en nuestro sistema, concretamente en esta carpeta: "_/var/lib/mod_tile_". De hecho se activa como servicio o demonio y en este paso ya es posibible comprobar un poco de todo lo que hemos instalado previamente... que no es poco.
 
 Editamos el archivo de configuración
 ```shell
 sudo vi /usr/local/etc/renderd.conf
 ```
 
-Bajo la sección __[defaule]__ modificamos esto:
+Bajo la sección __[default]__ modificamos esto:
 
 ```shell
 XML=/home/osm/openstreetmap-carto-2.41.0/style.xml
@@ -305,6 +309,15 @@ Oct 03 19:36:13 osm renderd[6092]: Using web mercator projection settings
 Oct 03 19:36:13 osm renderd[6092]: Using web mercator projection settings
 ```
 
+Otra forma para comprobar el correcto funcionamiento de renderd es ejecutar el servicio desde el usuario **osm**:
+
+```shell
+su - osm
+renderd -f -c /usr/local/etc/renderd.conf
+```
+
+El output de este commando es "enorme" y posiblemente veas algunos errores y warning aunque funcione correctamente, pero puedes hacer copy & paste en google e ir investigando. Hay bastante info en ingles sobre OSM.
+
 ## 11. Instalar y configurar servidor Web Apache.
 
 ```shell
@@ -359,19 +372,40 @@ http://IP_DE_TU_SERVIDOR/osm_tiles/0/0/0.png
 
 Nos tendria que aparecer una imagen del mapa mundi en pequeño. Si la ves, es que parece que funciona todo. Por ejemplo en mi caso he configurado un subdominio para este servidor: https://tile.azr.es/osm_tiles/0/0/0.png
 
+### Otras formas de Debug por si no te funciona.
+
+Principalmente Apache puedes comprobar con este comando:
+
+```shell
+sudo systemctl status apache2
+```
+
+Te proporciona bastante información en el caso de algún fallo. De hecho posiblemente ni se inicie debido a la configuración. Puedes comprobar la configuración de tu servidor apache asi:
+
+```shell
+apache2 -t
+```
+
+Logicamente otra forma es consultar los logs aquí:
+
+```shell
+cd /var/log/apache2/
+cd /var/log/httpd/
+```
+
 ## Anexo 1. SSL.
 
 Aunque no es estrictamente necesario se ha configurado el certificado SSL, puedes ver los cuatro pasos necesarios en el fichero __lets-encrypt.md__. Es un paso muy recomendable, ya que si vas a utilizar este servidor en producción, necesitaras conexión "segura".
 
-## Anexo 2. Ejemplo.
+## Anexo 2. Ejemplo real con html, css y js.
 
-He subido un ejemplo del funcionamiento que puedes consultar en la rama **gh-pages**, así mismo lo tienes funcionando en internet aquí: https://antonrodin.github.io/osm/. Utiliza la citada libreria Leaflet, que tiene bastante de documentación y se asemeja a la Api de Google Maps. Es más que suficiente para proyectos pequeños y medianos.
+He subido un ejemplo del funcionamiento que puedes consultar en la rama **gh-pages**, así mismo lo tienes funcionando en internet aquí: https://antonrodin.github.io/osm/. Utiliza la citada libreria **LeafletJs**, que tiene bastante de documentación y se asemeja a la Api de Google Maps. Es más que suficiente para proyectos pequeños y medianos.
 
-# Por último y no menos importante
+# Anexo 3. Lentitud. Por último y no menos importante
 
-Al principio es posible que el funcionamiento te parezca lento, principalmente es por la generación del mapa. De hecho es posible que tengas errores de "not found" o "timeout" en la consola. El problema reside en que los "tiles" se generan en tiempo real.
+Al principio es posible que el funcionamiento te parezca lento, principalmente es por la generación del mapa. De hecho es posible que tengas __errores de "not found" o "timeout" en la consola__. El problema reside en que los "tiles" se generan en tiempo real.
 
-Basicamente el **renderd** genera archivos .png y los guarda en la carpeta __/var/lib/mod_tile/__. Puedes acelerar este proceso y renderizar del tiron estos archivos con el comando **render_list**. Puedes encontrar algo de documentación aquí: http://www.volkerschatz.com/net/osm/render_list.html
+Basicamente el **renderd** genera archivos .png y los va guardando en la carpeta __/var/lib/mod_tile/__. Puedes acelerar este proceso y renderizar del tiron estos archivos con el comando **render_list**. Puedes encontrar algo de documentación aquí: http://www.volkerschatz.com/net/osm/render_list.html
 
 El comando basico es este:
 
@@ -381,11 +415,13 @@ render_list -m default -a -z 0 -Z 10
 
 Te generara tiles desde el zoom = 0 (-z) hasta zoom = 10 (-Z), **¡Ojo!** según el zoom y el mapa que tengas puede tardar MUCHO TIEMPO. Puedes probarlo con valores bajos, de 0 a 5 por ejemplo.
 
-Personalmente, pasados varios días con un cierto uso del servidor el rendimiento es aceptable. Pero logicamente se trata de algo ciertamente complejo y existen diferentes y numerosas formas de optimizarlo y configurarlo. Te invito a descubirirlo por ti mismo.
+Personalmente, pasados varios días con un cierto uso del servidor el rendimiento se vuelve aceptable-bueno. Pero logicamente se trata de algo ciertamente complejo y existen diferentes y numerosas formas de optimizarlo y configurarlo. 
+
+Te invito a descubirirlo por ti mismo...
 
 ### Este tutorial esta basado en esta documentación:
 
-* OSM: https://www.linuxbabe.com/linux-server/openstreetmap-tile-server-ubuntu-16-04
+* OpenStreetMaps: https://www.linuxbabe.com/linux-server/openstreetmap-tile-server-ubuntu-16-04
 * Apache: https://www.digitalocean.com/community/tutorials/how-to-install-the-apache-web-server-on-ubuntu-16-04
 * Osmosis: https://wiki.openstreetmap.org/wiki/Osmosis/Installation
 * The problem: https://gis.stackexchange.com/questions/222001/how-to-put-the-two-regions-and-countries-data-on-openstreetmap-into-postgresql
