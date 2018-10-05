@@ -153,9 +153,11 @@ ServerAliveInterval 60
 
 ## 7. Importación a PostgreSQL
 
-Este paso recomiendo realizar con al menos un par de horas por delante, ya que dura bastante (Caso españa, unos 700Mb de importación). Para ello necesitaremos de la herramienta **osm2pgsql** que procesa OSM Map ta y la importa en nuestra base de datos gis creada previamente.
+Este paso recomiendo realizar con al menos un par de horas por delante, ya que dura bastante (Caso españa, unos 700Mb de importación). Para ello necesitaremos de la herramienta **osm2pgsql** (Open Street Maps To PostGreSQL), como su nombre indica procesa OSM Map data y la importa en nuestra base de datos gis de PostgreSQL creada previamente. Como apunte, dispones una Wiki con ejemplos de importación del planeta entero, creo que unos 24Gb, aquí: 
 
-Instalamos (con usuario root):
+https://wiki.openstreetmap.org/wiki/Osm2pgsql/benchmarks
+
+Instalamos osm2pgsql (con usuario root):
 
 ```shell
 sudp apt install osm2pgsql

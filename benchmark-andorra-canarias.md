@@ -1,5 +1,9 @@
 Este es el resultado de la importación de Andorra + Canarias con la herramienta **osm2pgsql**
 
+Otros benchmark puedes encontrar aquí:
+
+https://wiki.openstreetmap.org/wiki/Osm2pgsql/benchmarks
+
 ```
 osm@osm:~/osmosis/bin$ osm2pgsql --slim -d gis -C 3600 --hstore -S ~/openstreetmap-carto-2.41.0/openstreetmap-carto.style merged.pbf
 osm2pgsql SVN version 0.88.1 (64bit id space)
